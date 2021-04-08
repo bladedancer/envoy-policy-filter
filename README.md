@@ -13,7 +13,7 @@ For an example of additional HTTP filters, see [here](http-filter-example).
 To build the Envoy static binary:
 
 1. `git submodule update --init`
-2. `bazel build //:envoy`
+2.  `./envoy/ci/run_envoy_docker.sh "bazel build //:envoy"`
 
 ## Testing
 
