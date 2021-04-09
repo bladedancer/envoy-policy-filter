@@ -23,22 +23,23 @@ private:
 
 using PolicyFilterConfigSharedPtr = std::shared_ptr<PolicyFilterConfig>;
 
-class PolicyDecoderFilter : public PassThroughDecoderFilter {
+class PolicyFilter : public PassThroughFilter {
 public:
-  PolicyDecoderFilter(PolicyFilterConfigSharedPtr);
-  ~PolicyDecoderFilter();
+  PolicyFilter(PolicyFilterConfigSharedPtr);
+  ~PolicyFilter();
 
   // Http::StreamFilterBase
   void onDestroy() override;
 
-  // Http::StreamDecoderFilter
+  // Http::StreamEncoderFilter (Response)
+  Http::FilterHeadersStatus encodeHeaders(Http::ResponseHeaderMap&, bool) override;
+
+  // Http::StreamDecoderFilter (Requests)
   FilterHeadersStatus decodeHeaders(RequestHeaderMap&, bool) override;
   FilterDataStatus decodeData(Buffer::Instance&, bool) override;
-  void setDecoderFilterCallbacks(StreamDecoderFilterCallbacks&) override;
 
 private:
   const PolicyFilterConfigSharedPtr config_;
-  StreamDecoderFilterCallbacks* decoder_callbacks_;
 
   const LowerCaseString headerKey() const;
   const std::string headerValue() const;

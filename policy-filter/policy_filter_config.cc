@@ -38,8 +38,8 @@ private:
             Http::PolicyFilterConfig(proto_config));
 
     return [config](Http::FilterChainFactoryCallbacks& callbacks) -> void {
-      auto filter = new Http::PolicyDecoderFilter(config);
-      callbacks.addStreamDecoderFilter(Http::StreamDecoderFilterSharedPtr{filter});
+      auto filter = new Http::PolicyFilter(config);
+      callbacks.addStreamFilter(Http::StreamFilterSharedPtr{filter});
     };
   }
 };

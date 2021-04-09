@@ -11,35 +11,39 @@ PolicyFilterConfig::PolicyFilterConfig(
     const policy::PolicyConfig& proto_config)
     : key_(proto_config.key()), val_(proto_config.val()) {}
 
-PolicyDecoderFilter::PolicyDecoderFilter(PolicyFilterConfigSharedPtr config)
+PolicyFilter::PolicyFilter(PolicyFilterConfigSharedPtr config)
     : config_(config) {}
 
-PolicyDecoderFilter::~PolicyDecoderFilter() {}
+PolicyFilter::~PolicyFilter() {}
 
-void PolicyDecoderFilter::onDestroy() {}
+void PolicyFilter::onDestroy() {}
 
-const LowerCaseString PolicyDecoderFilter::headerKey() const {
+const LowerCaseString PolicyFilter::headerKey() const {
   return LowerCaseString(config_->key());
 }
 
-const std::string PolicyDecoderFilter::headerValue() const {
+const std::string PolicyFilter::headerValue() const {
   return config_->val();
 }
 
-FilterHeadersStatus PolicyDecoderFilter::decodeHeaders(RequestHeaderMap& headers, bool) {
+FilterHeadersStatus PolicyFilter::encodeHeaders(ResponseHeaderMap& headers, bool) {
   // add a header
   headers.addCopy(headerKey(), headerValue());
 
   return FilterHeadersStatus::Continue;
 }
 
-FilterDataStatus PolicyDecoderFilter::decodeData(Buffer::Instance&, bool) {
+FilterHeadersStatus PolicyFilter::decodeHeaders(RequestHeaderMap& headers, bool) {
+  // add a header
+  headers.addCopy(headerKey(), headerValue());
+
+  return FilterHeadersStatus::Continue;
+}
+
+FilterDataStatus PolicyFilter::decodeData(Buffer::Instance&, bool) {
   return FilterDataStatus::Continue;
 }
 
-void PolicyDecoderFilter::setDecoderFilterCallbacks(StreamDecoderFilterCallbacks& callbacks) {
-  decoder_callbacks_ = &callbacks;
-}
 
 } // namespace Http
 } // namespace Envoy
