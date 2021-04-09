@@ -4,14 +4,14 @@
 
 #include "extensions/filters/http/common/pass_through_filter.h"
 
-#include "http-filter-example/http_filter.pb.h"
+#include "policy-filter/policy_filter.pb.h"
 
 namespace Envoy {
 namespace Http {
 
-class HttpSampleDecoderFilterConfig {
+class PolicyFilterConfig {
 public:
-  HttpSampleDecoderFilterConfig(const sample::Decoder& proto_config);
+  PolicyFilterConfig(const policy::PolicyConfig& proto_config);
 
   const std::string& key() const { return key_; }
   const std::string& val() const { return val_; }
@@ -21,12 +21,12 @@ private:
   const std::string val_;
 };
 
-using HttpSampleDecoderFilterConfigSharedPtr = std::shared_ptr<HttpSampleDecoderFilterConfig>;
+using PolicyFilterConfigSharedPtr = std::shared_ptr<PolicyFilterConfig>;
 
-class HttpSampleDecoderFilter : public PassThroughDecoderFilter {
+class PolicyDecoderFilter : public PassThroughDecoderFilter {
 public:
-  HttpSampleDecoderFilter(HttpSampleDecoderFilterConfigSharedPtr);
-  ~HttpSampleDecoderFilter();
+  PolicyDecoderFilter(PolicyFilterConfigSharedPtr);
+  ~PolicyDecoderFilter();
 
   // Http::StreamFilterBase
   void onDestroy() override;
@@ -37,7 +37,7 @@ public:
   void setDecoderFilterCallbacks(StreamDecoderFilterCallbacks&) override;
 
 private:
-  const HttpSampleDecoderFilterConfigSharedPtr config_;
+  const PolicyFilterConfigSharedPtr config_;
   StreamDecoderFilterCallbacks* decoder_callbacks_;
 
   const LowerCaseString headerKey() const;

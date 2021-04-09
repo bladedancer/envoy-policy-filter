@@ -1,10 +1,10 @@
 #include "test/integration/http_integration.h"
 
 namespace Envoy {
-class HttpFilterSampleIntegrationTest : public HttpIntegrationTest,
+class PolicyFilterIntegrationTest : public HttpIntegrationTest,
                                         public testing::TestWithParam<Network::Address::IpVersion> {
 public:
-  HttpFilterSampleIntegrationTest()
+  PolicyFilterIntegrationTest()
       : HttpIntegrationTest(Http::CodecClient::Type::HTTP1, GetParam()) {}
   /**
    * Initializer for an individual integration test.
@@ -14,15 +14,15 @@ public:
   void initialize() override {
     config_helper_.addFilter(
         "{ name: sample, typed_config: { \"@type\": type.googleapis.com/sample.Decoder, key: via, "
-        "val: sample-filter } }");
+        "val: sample-filter } }");s
     HttpIntegrationTest::initialize();
   }
 };
 
-INSTANTIATE_TEST_SUITE_P(IpVersions, HttpFilterSampleIntegrationTest,
+INSTANTIATE_TEST_SUITE_P(IpVersions, PolicyFilterIntegrationTest,
                          testing::ValuesIn(TestEnvironment::getIpVersionsForTest()));
 
-TEST_P(HttpFilterSampleIntegrationTest, Test1) {
+TEST_P(PolicyFilterIntegrationTest, Test1) {
   Http::TestRequestHeaderMapImpl headers{
       {":method", "GET"}, {":path", "/"}, {":authority", "host"}};
 

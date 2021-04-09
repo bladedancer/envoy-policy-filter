@@ -1,0 +1,102 @@
+admin:
+  access_log_path: /dev/null
+  address:
+    socket_address:
+      address: 127.0.0.1
+      port_value: 9901
+
+node:
+  cluster: service_demo
+  id: test-demo
+
+static_resources:
+  listeners:
+  - name: listener_0
+    per_connection_buffer_limit_bytes: 67108864
+    address:
+      socket_address:
+        address: 0.0.0.0
+        port_value: 8080      
+    filter_chains:
+    - filters:
+      - name: envoy.filters.network.http_connection_manager
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          stat_prefix: ingress_http
+          codec_type: AUTO
+          use_remote_address: true
+          xff_num_trusted_hops: 0
+          skip_xff_append: false
+          common_http_protocol_options:
+            idle_timeout: 3600s # 1 hour
+            #headers_with_underscores_action: REJECT_REQUEST
+          http2_protocol_options:
+            max_concurrent_streams: 100
+            initial_stream_window_size: 65536 # 64 KiB
+            initial_connection_window_size: 1048576 # 1 MiB
+          stream_idle_timeout: 300s # 5 mins, must be disabled for long-lived and streaming requests
+          request_timeout: 300s # 5 mins, must be disabled for long-lived and streaming requests
+          route_config:
+            name: local_route
+            virtual_hosts:
+            - name: local_service
+              domains:
+              - "*"
+              routes:
+              - match:
+                  path: "/api/demo"
+                route:
+                  cluster: "service_webhook"
+                  prefix_rewrite: "/2fcee8f2-b85f-4d2b-acf5-9e4358a6263b"
+                  auto_host_rewrite: true
+            internal_only_headers:
+            - isadmin 
+          http_filters:
+          - name: policy
+            typed_config:
+              "@type": type.googleapis.com/policy.PolicyConfig
+              key: via
+              val: sample-filter
+          - name: envoy.filters.http.router
+
+  clusters:
+  - name: service_webhook
+    connect_timeout: 2s
+    per_connection_buffer_limit_bytes: 5242880
+    type: LOGICAL_DNS
+    dns_lookup_family: AUTO
+    dns_lookup_family: "V4_ONLY"
+    lb_policy: ROUND_ROBIN
+    transport_socket:
+      name: "envoy.transport_socket.tls"
+      typed_config:
+        "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext"
+        common_tls_context:
+          tls_params:
+            ecdh_curves: ["X25519", "P-256", "P-384", "P-521"]
+        sni: "webhook.site"
+    load_assignment:
+      cluster_name: service_webhook
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: "webhook.site"
+                port_value: 443
+  - name: grpcserver
+    type: strict_dns
+    lb_policy: round_robin
+    http2_protocol_options: {}
+    connect_timeout: 5s
+    dns_lookup_family: "V4_ONLY"
+    per_connection_buffer_limit_bytes: 5242880
+    load_assignment:
+      cluster_name: grpcserver
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: 127.0.0.1
+                port_value: 50051
