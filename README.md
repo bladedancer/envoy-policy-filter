@@ -13,8 +13,12 @@ To build the Envoy static binary:
 2. `cd envoy && git checkout v1.17.1 && cd ..`
 3. ```ENVOY_DOCKER_BUILD_DIR=`pwd`/build ./envoy/ci/run_envoy_docker.sh "bazel build //ext_policy:envoy"```
 
+## Debug Build
+
+`ENVOY_DOCKER_BUILD_DIR=`pwd`/build ./envoy/ci/run_envoy_docker.sh "bazel build -c dbg //ext_policy:envoy //ext_policy:envoy.dwp"`
+
+
 ## Testing
-f
 To run the `policy` integration test:
 
 `./envoy/ci/run_envoy_docker.sh "bazel test //policy-filter:policy_filter_integration_test"`

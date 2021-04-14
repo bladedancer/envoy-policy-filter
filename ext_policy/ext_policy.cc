@@ -1,4 +1,5 @@
 #include "./ext_policy.h"
+#include "./mutation_utils.h"
 #include "absl/strings/str_format.h"
 
 namespace Envoy {
@@ -34,11 +35,9 @@ FilterHeadersStatus Filter::decodeHeaders(RequestHeaderMap& headers, bool end_of
   stats_.streams_started_.inc();
   InvokeRequest req;
 
-  // TODO
-  // auto* headers_req = req.mutable_request_headers();
-  // MutationUtils::buildHttpHeaders(headers, *headers_req->mutable_headers());
-  // headers_req->set_end_of_stream(end_of_stream);
+  MutationUtils::buildHttpHeaders(headers, req);
   req.set_id(std::string(headers.getRequestIdValue()));
+  req.set_policy("get this from metadata?");
   req.set_endofstream(end_of_stream);
 
   stream_->send(std::move(req), false);
@@ -54,7 +53,11 @@ void Filter::onReceiveMessage(std::unique_ptr<InvokeReply>&& r) {
   ENVOY_LOG(debug, "Received gRPC message.");
 
   // TODO - Update the headers
-  decoder_callbacks_->continueHeaders();
+  if (request_headers_ != nullptr) {
+    MutationUtils::applyHeaderMutations(*response, *request_headers_);
+    request_headers_ = nullptr;
+    decoder_callbacks_->clearRouteCache();
+  }
 
   // TODO - Update the body
   decoder_callbacks_->continueDecoding();

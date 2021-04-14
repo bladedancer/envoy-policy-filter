@@ -48,19 +48,10 @@ envoy_cc_library(
     repository = "@envoy",
     deps = [
         "@envoy//source/extensions/filters/http/common:pass_through_filter_lib",
-        ":client_interface"
+        ":client_interface",
+        ":mutation_utils_lib"
     ],
 )
-
-# envoy_cc_library(
-#     name = "policy_filter_config",
-#     srcs = ["policy_filter_config.cc"],
-#     repository = "@envoy",
-#     deps = [
-#         ":policy_filter_lib",
-#         "@envoy//include/envoy/server:filter_config_interface",
-#     ],
-# )
 
 envoy_cc_library(
     name = "client_interface",
@@ -83,6 +74,20 @@ envoy_cc_library(
         "@envoy//include/envoy/upstream:cluster_manager_interface",
         "@envoy//source/common/grpc:typed_async_client_lib",
         "@envoy_api//envoy/config/core/v3:pkg_cc_proto",
+        ":pkg_cc_proto",
+    ],
+)
+
+envoy_cc_library(
+    name = "mutation_utils_lib",
+    srcs = ["mutation_utils.cc"],
+    hdrs = ["mutation_utils.h"],
+    repository = "@envoy",
+    deps = [
+        "@envoy//include/envoy/buffer:buffer_interface",
+        "@envoy//include/envoy/http:header_map_interface",
+        "@envoy//source/common/http:header_utility_lib",
+        "@envoy//source/common/protobuf:utility_lib",
         ":pkg_cc_proto",
     ],
 )

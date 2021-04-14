@@ -58,12 +58,12 @@ static_resources:
               grpc_service:
                 envoy_grpc:
                   cluster_name: policyserver
-                timeout: 0.5s
+                timeout: 60s
           - name: envoy.filters.http.router
 
   clusters:
   - name: service_webhook
-    connect_timeout: 2s
+    connect_timeout: 60s
     per_connection_buffer_limit_bytes: 5242880
     type: LOGICAL_DNS
     dns_lookup_family: AUTO
@@ -90,7 +90,7 @@ static_resources:
     type: strict_dns
     lb_policy: round_robin
     http2_protocol_options: {}
-    connect_timeout: 5s
+    connect_timeout: 60s
     dns_lookup_family: "V4_ONLY"
     per_connection_buffer_limit_bytes: 5242880
     load_assignment:

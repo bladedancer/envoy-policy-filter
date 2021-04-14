@@ -1,0 +1,26 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/.cache/bazel/_bazel_envoybuild/b570b5ccd0454dc9af9f65ab1833764d/execroot/envoy_policy_filter/bazel-out/k8-dbg/bin/ext_policy/envoy",
+            "args": ["--config-path", "${workspaceFolder}/test/envoy.yaml", "-l", "debug"],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+              {
+                "description": "Enable pretty-printing for gdb",
+                "text": "-enable-pretty-printing",
+                "ignoreFailures": true
+              }
+            ],
+            //"preLaunchTask": "g++ build active file",
+            "miDebuggerPath": "/usr/bin/gdb"
+          }
+    ]
+}
