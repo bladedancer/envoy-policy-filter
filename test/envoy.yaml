@@ -52,11 +52,13 @@ static_resources:
             internal_only_headers:
             - isadmin 
           http_filters:
-          - name: policy
+          - name: ext_policy
             typed_config:
-              "@type": type.googleapis.com/policy.PolicyConfig
-              key: via
-              val: sample-filter
+              "@type": type.googleapis.com/demo.ext_policy.ExternalPolicy
+              grpc_service:
+                envoy_grpc:
+                  cluster_name: policyserver
+                timeout: 0.5s
           - name: envoy.filters.http.router
 
   clusters:
@@ -84,7 +86,7 @@ static_resources:
               socket_address:
                 address: "webhook.site"
                 port_value: 443
-  - name: grpcserver
+  - name: policyserver
     type: strict_dns
     lb_policy: round_robin
     http2_protocol_options: {}
@@ -92,7 +94,7 @@ static_resources:
     dns_lookup_family: "V4_ONLY"
     per_connection_buffer_limit_bytes: 5242880
     load_assignment:
-      cluster_name: grpcserver
+      cluster_name: policyserver
       endpoints:
       - lb_endpoints:
         - endpoint:
@@ -100,3 +102,10 @@ static_resources:
               socket_address:
                 address: 127.0.0.1
                 port_value: 50051
+    transport_socket:
+      name: "envoy.transport_socket.tls"
+      typed_config:
+        "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext"
+        common_tls_context:
+          tls_params:
+            ecdh_curves: ["X25519", "P-256", "P-384", "P-521"]

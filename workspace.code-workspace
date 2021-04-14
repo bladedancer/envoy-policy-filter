@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "envoy"
+		}
+	],
+	"settings": {
+		"git.ignoreLimitWarning": true
+	}
+}

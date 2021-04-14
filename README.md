@@ -11,7 +11,7 @@ To build the Envoy static binary:
 
 1. `git submodule update --init`
 2. `cd envoy && git checkout v1.17.1 && cd ..`
-3. ```ENVOY_DOCKER_BUILD_DIR=`pwd`/build ./envoy/ci/run_envoy_docker.sh "bazel build //policy-filter:envoy"```
+3. ```ENVOY_DOCKER_BUILD_DIR=`pwd`/build ./envoy/ci/run_envoy_docker.sh "bazel build //ext_policy:envoy"```
 
 ## Testing
 f
