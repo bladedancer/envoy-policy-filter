@@ -1,19 +1,30 @@
 #include "./ext_policy.h"
 #include "./mutation_utils.h"
 #include "absl/strings/str_format.h"
+#include "common/buffer/buffer_impl.h"
 
 namespace Envoy {
 namespace Extensions {
 namespace HttpFilters {
 namespace ExternalPolicy {
 
-using policyservice::InvokeRequest;
 using policyservice::InvokeReply;
+using policyservice::InvokeRequest;
 
+using Http::FilterDataStatus;
 using Http::FilterHeadersStatus;
 using Http::RequestHeaderMap;
+using Http::ResponseHeaderMap;
 
 static const std::string kErrorPrefix = "ext_policy error";
+
+void Filter::setDecoderFilterCallbacks(Http::StreamDecoderFilterCallbacks& callbacks) {
+  decoder_callbacks_ = &callbacks;
+}
+
+void Filter::setEncoderFilterCallbacks(Http::StreamEncoderFilterCallbacks& callbacks) {
+  encoder_callbacks_ = &callbacks;
+}
 
 void Filter::closeStream() {
   if (!stream_closed_) {
@@ -40,58 +51,105 @@ FilterHeadersStatus Filter::decodeHeaders(RequestHeaderMap& headers, bool end_of
   req.set_policy("get this from metadata?");
   req.set_endofstream(end_of_stream);
 
+  filter_state_ = FilterState::Request;
   stream_->send(std::move(req), false);
   stats_.stream_msgs_sent_.inc();
 
   // Wait until we have a gRPC response before allowing any more callbacks
-  return FilterHeadersStatus::StopAllIterationAndWatermark;
+  return FilterHeadersStatus::StopIteration;
+}
+
+FilterDataStatus Filter::decodeData(Buffer::Instance& data, bool end_of_stream) {
+  ENVOY_LOG(trace, "decodeData({}): end_stream = {}", data.length(), end_of_stream);
+
+  InvokeRequest req;
+  req.set_body(data.linearize(data.length()), data.length());
+  req.set_endofstream(end_of_stream);
+
+  stream_->send(std::move(req), false);
+  stats_.stream_msgs_sent_.inc();
+
+  return FilterDataStatus::StopIterationAndWatermark;
+}
+
+FilterHeadersStatus Filter::encodeHeaders(ResponseHeaderMap& headers, bool end_of_stream) {
+  response_headers_ = &headers;
+
+  if (stream_closed_) {
+    // Perhaps we should keep it open - at the moment the demo server is closing it.
+    stream_ = client_->start(*this, config_->grpcTimeout());
+    stats_.streams_started_.inc();
+  }
+
+  InvokeRequest req;
+  MutationUtils::buildHttpHeaders(headers, req);
+  req.set_id(std::string(headers.getRequestIdValue()));
+  req.set_policy("get resp policy this from metadata?");
+  req.set_endofstream(end_of_stream);
+
+  filter_state_ = FilterState::Response;
+  stream_->send(std::move(req), false);
+  stats_.stream_msgs_sent_.inc();
+
+  // Wait until we have a gRPC response before allowing any more callbacks
+  return FilterHeadersStatus::StopIteration;
+}
+
+FilterDataStatus Filter::encodeData(Buffer::Instance& data, bool end_of_stream) {
+  ENVOY_LOG(trace, "encodeData({}): end_stream = {}", data.length(), end_of_stream);
+
+  InvokeRequest req;
+  req.set_body(data.linearize(data.length()), data.length());
+  req.set_endofstream(end_of_stream);
+
+  stream_->send(std::move(req), false);
+  stats_.stream_msgs_sent_.inc();
+
+  return FilterDataStatus::StopIterationAndWatermark;
 }
 
 void Filter::onReceiveMessage(std::unique_ptr<InvokeReply>&& r) {
   auto response = std::move(r);
-  //bool message_valid = false;
+  // bool message_valid = false;
   ENVOY_LOG(debug, "Received gRPC message.");
 
-  // TODO - Update the headers
-  if (request_headers_ != nullptr) {
-    MutationUtils::applyHeaderMutations(*response, *request_headers_);
-    request_headers_ = nullptr;
-    decoder_callbacks_->clearRouteCache();
+  if (filter_state_ == FilterState::Request) {
+    // TODO - Update the headers
+    if (request_headers_ != nullptr) {
+      MutationUtils::applyHeaderMutations(*response, *request_headers_);
+      request_headers_ = nullptr;
+      decoder_callbacks_->clearRouteCache();
+    }
+
+    decoder_callbacks_->modifyDecodingBuffer([&response](Buffer::Instance& dec_buf) {
+      Buffer::OwnedImpl body(response->body());
+      dec_buf.drain(dec_buf.length());
+      dec_buf.move(body);
+    });
+
+    if (response->endofstream()) {
+      decoder_callbacks_->continueDecoding();
+    }
+
+  } else if (filter_state_ == FilterState::Response) {
+    if (response_headers_ != nullptr) {
+      MutationUtils::applyHeaderMutations(*response, *response_headers_);
+      response_headers_ = nullptr;
+    }
+
+    Buffer::OwnedImpl data(response->body());
+    encoder_callbacks_->modifyEncodingBuffer([&response](Buffer::Instance& enc_buf) {
+      Buffer::OwnedImpl body(response->body());
+      enc_buf.drain(enc_buf.length());
+      enc_buf.move(body);
+    });
+
+    if (response->endofstream()) {
+      encoder_callbacks_->continueEncoding();
+    }
   }
 
-  // TODO - Update the body
-  decoder_callbacks_->continueDecoding();
-
-  // This next section will grow as we support the rest of the protocol
-  // if (request_state_ == FilterState::HEADERS) {
-  //   if (response->has_request_headers()) {
-  //     ENVOY_LOG(debug, "applying request_headers response");
-  //     message_valid = true;
-  //     const auto& headers_response = response->request_headers();
-  //     if (headers_response.has_response()) {
-  //       const auto& common_response = headers_response.response();
-  //       if (common_response.has_header_mutation()) {
-  //         // TODO MutationUtils::applyHeaderMutations(common_response.header_mutation(), *request_headers_);
-  //       }
-  //     }
-  //   } else if (response->has_immediate_response()) {
-  //     // To be implemented later. Leave stream open to allow people to implement
-  //     // correct servers that don't break us.
-  //     message_valid = true;
-  //   }
-  //   request_state_ = FilterState::IDLE;
-  //   decoder_callbacks_->continueDecoding();
-  // }
-
-  // if (message_valid) {
-  //   stats_.stream_msgs_received_.inc();
-  // } else {
-  //   stats_.spurious_msgs_received_.inc();
-  //   // Ignore messages received out of order. However, close the stream to
-  //   // protect ourselves since the server is not following the protocol.
-  //   ENVOY_LOG(warn, "Spurious response message received on gRPC stream");
-  //   closeStream();
-  // }
+  // TODO: Could manage stream state much better here.
 }
 
 void Filter::onGrpcError(Grpc::Status::GrpcStatus status) {
@@ -103,19 +161,9 @@ void Filter::onGrpcError(Grpc::Status::GrpcStatus status) {
     onGrpcClose();
     stats_.failure_mode_allowed_.inc();
   } else {
-    // Use a switch here now because there will be more than two
-    // cases very soon.
-    // switch (request_state_) {
-    // case FilterState::HEADERS:
-    //   request_state_ = FilterState::IDLE;
-    //   decoder_callbacks_->sendLocalReply(
-    //       Http::Code::InternalServerError, "", nullptr, absl::nullopt,
-    //       absl::StrFormat("%s: gRPC error %i", kErrorPrefix, status));
-    //   break;
-    // default:
-    //   // Nothing else to do
-    //   break;
-    // }
+    filter_state_ = FilterState::Idle;
+    decoder_callbacks_->sendLocalReply(Http::Code::InternalServerError, "", nullptr, absl::nullopt,
+                                       absl::StrFormat("%s: gRPC error %i", kErrorPrefix, status));
   }
 }
 
@@ -123,19 +171,7 @@ void Filter::onGrpcClose() {
   ENVOY_LOG(debug, "Received gRPC stream close");
   stream_closed_ = true;
   stats_.streams_closed_.inc();
-  // Successful close. We can ignore the stream for the rest of our request
-  // and response processing.
-  // Use a switch here now because there will be more than two
-  // cases very soon.
-  // switch (request_state_) {
-  // case FilterState::HEADERS:
-  //   request_state_ = FilterState::IDLE;
-  //   decoder_callbacks_->continueDecoding();
-  //   break;
-  // default:
-  //   // Nothing to do otherwise
-  //   break;
-  // }
+  // TODO: CONTINUE
 }
 
 } // namespace ExternalPolicy

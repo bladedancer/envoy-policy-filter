@@ -32,6 +32,12 @@ void MutationUtils::applyHeaderMutations(const policyservice::InvokeReply& respo
   }
 }
 
+void MutationUtils::applyCommonBodyResponse(const policyservice::InvokeReply& response,
+                                            Buffer::Instance& buffer) {
+    buffer.drain(buffer.length());
+    buffer.add(response.body());
+}
+
 } // namespace ExternalPolicy
 } // namespace HttpFilters
 } // namespace Extensions

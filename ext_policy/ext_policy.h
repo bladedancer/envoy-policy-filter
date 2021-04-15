@@ -63,22 +63,28 @@ using FilterConfigSharedPtr = std::shared_ptr<FilterConfig>;
 class Filter : public Logger::Loggable<Logger::Id::filter>,
                public Http::PassThroughFilter,
                public ExternalPolicyCallbacks {
+  enum class FilterState {
+    Idle,
+    Request,
+    Response
+  };
 public:
   Filter(const FilterConfigSharedPtr& config, ExternalPolicyClientPtr&& client)
       : config_(config), client_(std::move(client)), stats_(config->stats()) {}
 
   void onDestroy() override;
 
-  void setDecoderFilterCallbacks(Http::StreamDecoderFilterCallbacks& callbacks) override {
-    decoder_callbacks_ = &callbacks;
-  }
+  void setDecoderFilterCallbacks(Http::StreamDecoderFilterCallbacks&) override;
+  Http::FilterHeadersStatus decodeHeaders(Http::RequestHeaderMap&, bool end_of_stream) override;
+  Http::FilterDataStatus decodeData(Buffer::Instance& data, bool end_stream) override;
 
-  Http::FilterHeadersStatus decodeHeaders(Http::RequestHeaderMap& headers,
-                                          bool end_stream) override;
+  void setEncoderFilterCallbacks(Http::StreamEncoderFilterCallbacks&) override;
+  Http::FilterHeadersStatus encodeHeaders(Http::ResponseHeaderMap&, bool end_of_stream) override;
+  Http::FilterDataStatus encodeData(Buffer::Instance& data, bool end_stream) override;
 
   // ExternalPolicyCallbacks
-  void onReceiveMessage(std::unique_ptr<policyservice::InvokeReply>&& response) override;
-  void onGrpcError(Grpc::Status::GrpcStatus error) override;
+  void onReceiveMessage(std::unique_ptr<policyservice::InvokeReply>&&) override;
+  void onGrpcError(Grpc::Status::GrpcStatus) override;
   void onGrpcClose() override;
 
 private:
@@ -89,11 +95,15 @@ private:
   ExtPolicyFilterStats stats_;
 
   Http::StreamDecoderFilterCallbacks* decoder_callbacks_ = nullptr;
+  Http::StreamEncoderFilterCallbacks* encoder_callbacks_ = nullptr;
 
   ExternalPolicyStreamPtr stream_;
   bool stream_closed_ = false;
 
+
   Http::HeaderMap* request_headers_ = nullptr;
+  Http::HeaderMap* response_headers_ = nullptr;
+  FilterState filter_state_ = FilterState::Idle;
 };
 
 } // namespace ExternalPolicy

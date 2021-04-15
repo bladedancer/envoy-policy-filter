@@ -11,10 +11,9 @@ namespace ExternalPolicy {
 
 class MutationUtils {
 public:
-  // Convert a header map into a protobuf
-  static void buildHttpHeaders(const Http::HeaderMap& headers_in, policyservice::InvokeRequest& request);
-  // Modify header map based on a set of mutations from a protobuf
-  static void applyHeaderMutations(const policyservice::InvokeReply& response, Http::HeaderMap& headers);
+  static void buildHttpHeaders(const Http::HeaderMap&, policyservice::InvokeRequest&);
+  static void applyHeaderMutations(const policyservice::InvokeReply&, Http::HeaderMap&);
+  static void applyCommonBodyResponse(const policyservice::InvokeReply&, Buffer::Instance&);
 };
 
 } // namespace ExternalPolicy
